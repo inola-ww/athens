@@ -1,0 +1,32 @@
+cmd/proxy/actions/app_proxy.go
+  h_3bbfca859729f3 157-158
+config.dev.toml
+  h_3bbfca859729f3 382-389
+pkg/config/config.go
+  h_3bbfca859729f3 75,206
+pkg/config/config_test.go
+  h_3bbfca859729f3 296
+pkg/download/protocol.go
+  h_3bbfca859729f3 59-63,82-94,110,355,362,371-397
+pkg/download/protocol_test.go
+  h_3bbfca859729f3 13,623-665
+pkg/module/go_get_fetcher.go
+  h_3bbfca859729f3 87-94,140
+pkg/observ/metrics.go
+  h_3bbfca859729f3 49,110-117,229-237
+pkg/stash/with_pool.go
+  h_3bbfca859729f3 50-51,54-56
+pkg/stash/with_pool_ctx_test.go
+  h_3bbfca859729f3 1-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2e0340a2135e501bdf56b53efaab5473571423af",
+  "prompts": {},
+  "humans": {
+    "h_3bbfca859729f3": {
+      "author": "Wurzer, Wilhelm <148440009+inola-ww@users.noreply.github.com>"
+    }
+  }
+}
