@@ -1,0 +1,24 @@
+cmd/proxy/actions/app.go
+  h_3bbfca859729f3 153
+pkg/module/cached_lister.go
+  h_3bbfca859729f3 9,53,58,62
+pkg/module/limited_lister.go
+  h_3bbfca859729f3 5,8,25,29,32,34-55
+pkg/observ/metrics.go
+  h_3bbfca859729f3 5-6,20-21,28-31,39-41,76-101,132-189
+pkg/observ/metrics_test.go
+  h_3bbfca859729f3 107-127
+pkg/observ/stats.go
+  h_3bbfca859729f3 11,52-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "321cba6cd3267cac6ee12aa63d62ac980d6a6496",
+  "prompts": {},
+  "humans": {
+    "h_3bbfca859729f3": {
+      "author": "Wurzer, Wilhelm <148440009+inola-ww@users.noreply.github.com>"
+    }
+  }
+}
