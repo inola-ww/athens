@@ -56,6 +56,11 @@ type Opts struct {
 	// .mod misses in the async and redirect download modes with the upstream
 	// file itself instead of a redirect, saving the client a round trip.
 	UpstreamMeta module.UpstreamMeta
+	// BackgroundStashLimit caps how many background stashes (async and
+	// async_redirect modes) may be queued or running at once. Further misses
+	// are answered as usual but don't start a stash; a later miss retries.
+	// 0 means no limit.
+	BackgroundStashLimit int
 }
 
 // NetworkMode constants.
@@ -74,7 +79,19 @@ func New(opts *Opts, wrappers ...Wrapper) Protocol {
 	if opts.DownloadFile == nil {
 		opts.DownloadFile = &mode.DownloadFile{Mode: mode.Sync}
 	}
-	var p Protocol = &protocol{opts.DownloadFile, opts.Storage, opts.Stasher, opts.Lister, opts.NetworkMode, opts.StashZipOnly, opts.UpstreamMeta}
+	pr := &protocol{
+		df:          opts.DownloadFile,
+		storage:     opts.Storage,
+		stasher:     opts.Stasher,
+		lister:      opts.Lister,
+		networkMode: opts.NetworkMode,
+		zipOnly:     opts.StashZipOnly,
+		meta:        opts.UpstreamMeta,
+	}
+	if opts.BackgroundStashLimit > 0 {
+		pr.bgSlots = make(chan struct{}, opts.BackgroundStashLimit)
+	}
+	var p Protocol = pr
 	for _, w := range wrappers {
 		p = w(p)
 	}
@@ -90,6 +107,7 @@ type protocol struct {
 	networkMode string
 	zipOnly     bool
 	meta        module.UpstreamMeta
+	bgSlots     chan struct{}
 }
 
 func (p *protocol) List(ctx context.Context, mod string) ([]string, error) {
@@ -334,14 +352,14 @@ func (p *protocol) processDownload(ctx context.Context, mod, ver string, backgro
 		return f(newVer)
 	case mode.Async:
 		if backgroundStash {
-			go func() { _, _ = p.stasher.Stash(ctx, mod, ver) }()
+			p.stashInBackground(ctx, mod, ver)
 		}
 		return errors.E(op, "async: module not found", errors.KindNotFound)
 	case mode.Redirect:
 		return errors.E(op, "redirect", errors.KindRedirect)
 	case mode.AsyncRedirect:
 		if backgroundStash {
-			go func() { _, _ = p.stasher.Stash(ctx, mod, ver) }()
+			p.stashInBackground(ctx, mod, ver)
 		}
 		return errors.E(op, "async_redirect: module not found", errors.KindRedirect)
 	case mode.None:
@@ -349,6 +367,33 @@ func (p *protocol) processDownload(ctx context.Context, mod, ver string, backgro
 	}
 	return nil
 }
+
+// stashInBackground starts a stash that outlives the request. It gets its own
+// context: the one processDownload builds is cancelled as soon as the request
+// is answered.
+func (p *protocol) stashInBackground(ctx context.Context, mod, ver string) {
+	if p.bgSlots != nil {
+		select {
+		case p.bgSlots <- struct{}{}:
+		default:
+			observ.RecordBackgroundStash(ctx, "dropped")
+			return
+		}
+	}
+	observ.RecordBackgroundStash(ctx, "started")
+	bgCtx, cancel := copyContextWithCustomTimeout(ctx, backgroundStashTimeout)
+	go func() {
+		defer cancel()
+		if p.bgSlots != nil {
+			defer func() { <-p.bgSlots }()
+		}
+		_, _ = p.stasher.Stash(bgCtx, mod, ver)
+	}()
+}
+
+// backgroundStashTimeout bounds a background stash including time spent
+// waiting for a GoGetWorkers slot.
+const backgroundStashTimeout = 15 * time.Minute
 
 // union concatenates two version lists and removes duplicates.
 func union(list1, list2 []string) []string {

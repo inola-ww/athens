@@ -84,6 +84,14 @@ func (g *goGetFetcher) Fetch(ctx context.Context, mod, ver string) (*storage.Ver
 		_ = clearFiles(g.fs, goPathRoot)
 		return nil, errors.E(op, err)
 	}
+	// On success the returned zip's Close removes goPathRoot; on any error
+	// below it has to go here.
+	success := false
+	defer func() {
+		if !success {
+			_ = clearFiles(g.fs, goPathRoot)
+		}
+	}()
 
 	var storageVer storage.Version
 	storageVer.Semver = m.Version
@@ -129,6 +137,7 @@ func (g *goGetFetcher) Fetch(ctx context.Context, mod, ver string) (*storage.Ver
 	// that we read into memory and return an io.ReadCloser that reads out of memory
 	storageVer.Zip = &zipReadCloser{zip, g.fs, goPathRoot}
 	storageVer.ZipMD5 = zipMD5
+	success = true
 
 	return &storageVer, nil
 }

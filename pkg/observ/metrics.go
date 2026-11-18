@@ -46,6 +46,7 @@ var (
 	upstreamListWait      metric.Float64Histogram
 	upstreamListInFlight  metric.Int64UpDownCounter
 	storageOpDuration     metric.Float64Histogram
+	backgroundStashes     metric.Int64Counter
 )
 
 // initMetrics creates Athens' custom instruments from the global MeterProvider.
@@ -101,6 +102,14 @@ func initMetrics() error {
 	upstreamListInFlight, err = meter.Int64UpDownCounter(
 		"upstream_list_in_flight",
 		metric.WithDescription("Number of upstream version lookups currently running"),
+	)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	backgroundStashes, err = meter.Int64Counter(
+		"background_stash_total",
+		metric.WithDescription("Background stashes started or dropped because the queue was full"),
 	)
 	if err != nil {
 		return errors.E(op, err)
@@ -216,4 +225,13 @@ func RecordStorageOperation(ctx context.Context, operation, result string, durat
 		attribute.String(attrStorageOp, operation),
 		attribute.String(attrResult, result),
 	))
+}
+
+// RecordBackgroundStash counts a background stash; result is started or
+// dropped.
+func RecordBackgroundStash(ctx context.Context, result string) {
+	if backgroundStashes == nil {
+		return
+	}
+	backgroundStashes.Add(ctx, 1, metric.WithAttributes(attribute.String(attrResult, result)))
 }

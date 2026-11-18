@@ -47,9 +47,13 @@ func (s *withpool) Stash(ctx context.Context, mod, ver string) (string, error) {
 	var err error
 	var newVer string
 	done := make(chan struct{}, 1)
-	s.jobCh <- func() {
+	select {
+	case s.jobCh <- func() {
 		newVer, err = s.stasher.Stash(ctx, mod, ver)
 		close(done)
+	}:
+	case <-ctx.Done():
+		return "", errors.E(op, ctx.Err())
 	}
 	<-done
 	if err != nil {

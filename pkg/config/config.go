@@ -72,6 +72,7 @@ type Config struct {
 	FetchUpstreamURL      string    `envconfig:"ATHENS_FETCH_UPSTREAM_URL"`
 	StashZipOnly          bool      `envconfig:"ATHENS_STASH_ZIP_ONLY"`
 	UpstreamMetaCacheSize int       `envconfig:"ATHENS_UPSTREAM_META_CACHE_SIZE" validate:"min=0"`
+	BackgroundStashLimit  int       `envconfig:"ATHENS_BACKGROUND_STASH_LIMIT"   validate:"min=0"`
 	SingleFlightType      string    `envconfig:"ATHENS_SINGLE_FLIGHT_TYPE"`
 	RobotsFile            string    `envconfig:"ATHENS_ROBOTS_FILE"`
 	IndexType             string    `envconfig:"ATHENS_INDEX_TYPE"`
@@ -202,6 +203,7 @@ func defaultConfig() *Config {
 		NetworkMode:           "strict",
 		ListCacheSize:         10000,
 		UpstreamMetaCacheSize: 20000,
+		BackgroundStashLimit:  1000,
 		RobotsFile:            "robots.txt",
 		IndexType:             "none",
 		ShutdownTimeout:       60,

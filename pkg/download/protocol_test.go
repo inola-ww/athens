@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -617,6 +618,49 @@ func TestUpstreamMeta(t *testing.T) {
 		_, err := dp.GoMod(t.Context(), mod, ver)
 		require.Equal(t, errors.KindRedirect, errors.Kind(err))
 	})
+}
+
+type blockingStasher struct {
+	calls   atomic.Int32
+	ctxErrs chan error
+	release chan struct{}
+}
+
+func (b *blockingStasher) Stash(ctx context.Context, mod, ver string) (string, error) {
+	b.calls.Add(1)
+	<-b.release
+	b.ctxErrs <- ctx.Err()
+	return ver, nil
+}
+
+func TestBackgroundStashLimitAndContext(t *testing.T) {
+	s, err := mem.NewStorage()
+	require.NoError(t, err)
+	st := &blockingStasher{ctxErrs: make(chan error, 3), release: make(chan struct{})}
+	dp := New(&Opts{
+		Stasher:              st,
+		Storage:              s,
+		BackgroundStashLimit: 1,
+		DownloadFile:         &mode.DownloadFile{Mode: mode.AsyncRedirect, DownloadURL: "https://proxy.golang.org"},
+	})
+	mod := "github.com/athens-artifacts/happy-path"
+
+	_, err = dp.Zip(t.Context(), mod, "v0.0.1")
+	require.Equal(t, errors.KindRedirect, errors.Kind(err))
+	_, err = dp.Zip(t.Context(), mod, "v0.0.2")
+	require.Equal(t, errors.KindRedirect, errors.Kind(err), "a full queue still answers the request")
+	require.Eventually(t, func() bool { return st.calls.Load() == 1 }, time.Second, 10*time.Millisecond)
+
+	// The request is long answered; the background stash must still have a
+	// live context.
+	close(st.release)
+	require.NoError(t, <-st.ctxErrs)
+
+	// The slot is free again.
+	require.Eventually(t, func() bool {
+		_, _ = dp.Zip(t.Context(), mod, "v0.0.3")
+		return st.calls.Load() == 2
+	}, time.Second, 20*time.Millisecond)
 }
 
 type mockStasher struct {
