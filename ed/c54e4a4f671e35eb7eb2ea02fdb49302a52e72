@@ -1,0 +1,21 @@
+pkg/download/addons/with_pool.go
+  s_aaebbe9b85bbfa::t_3ae75c993b70a9 11-13,15-16,20-21,24,28-33,35-38,40,44,48,52,56,60
+pkg/download/addons/with_pool_test.go
+  s_aaebbe9b85bbfa::t_6edfedd8dd677e 6,158-186
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "edc54e4a4f671e35eb7eb2ea02fdb49302a52e72",
+  "prompts": {},
+  "sessions": {
+    "s_aaebbe9b85bbfa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "75a1a00d-0673-4b78-af03-4cc0644d0e02",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Wurzer, Wilhelm <148440009+inola-ww@users.noreply.github.com>"
+    }
+  }
+}
