@@ -1,0 +1,29 @@
+cmd/proxy/actions/app_proxy.go
+  s_aaebbe9b85bbfa::t_654e2c522f3b5c 110-114,142
+config.dev.toml
+  s_aaebbe9b85bbfa::t_76d8386eb58f7e 67-70
+pkg/download/addons/with_pool.go
+  s_aaebbe9b85bbfa::t_a919a0cd6b9bbe 11-13,15-16,20-21,24,28-33,35-38,40,44,48,52,56,60
+pkg/download/addons/with_pool_test.go
+  s_aaebbe9b85bbfa::t_17de3a382fd306 6,158-186
+pkg/module/limited_lister.go
+  s_aaebbe9b85bbfa::t_3564faa497e566 1-30
+pkg/module/limited_lister_test.go
+  s_aaebbe9b85bbfa::t_509ea13bc13245 1-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1fe580d1d5fb6ca47fcd2fb9fe6c921bee5b9495",
+  "prompts": {},
+  "sessions": {
+    "s_aaebbe9b85bbfa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "75a1a00d-0673-4b78-af03-4cc0644d0e02",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Wurzer, Wilhelm <148440009+inola-ww@users.noreply.github.com>"
+    }
+  }
+}
