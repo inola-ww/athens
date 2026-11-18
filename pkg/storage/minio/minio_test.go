@@ -1,11 +1,16 @@
 package minio
 
 import (
+	"bytes"
+	"fmt"
 	"os"
+	"slices"
 	"testing"
 
 	"github.com/gomods/athens/pkg/config"
 	"github.com/gomods/athens/pkg/storage/compliance"
+	minio "github.com/minio/minio-go/v6"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBackend(t *testing.T) {
@@ -109,4 +114,41 @@ func getStorage(t testing.TB) *storageImpl {
 	}
 
 	return backend.(*storageImpl)
+}
+
+// TestListPaginatesAndSkipsNestedModules stores more versions than fit in one
+// ListObjectsV2 page plus a nested module under the same prefix.
+func TestListPaginatesAndSkipsNestedModules(t *testing.T) {
+	s := getStorage(t)
+	ctx := t.Context()
+	const mod = "example.com/paginate"
+	put := func(key string) {
+		t.Helper()
+		_, err := s.minioClient.PutObject(s.bucketName, key, bytes.NewReader([]byte("x")), 1, minio.PutObjectOptions{})
+		require.NoError(t, err)
+	}
+	var want []string
+	for i := range 400 {
+		v := fmt.Sprintf("v1.%d.0", i)
+		want = append(want, v)
+		for _, f := range []string{"go.mod", v + ".info", "source.zip"} {
+			put(mod + "/" + v + "/" + f)
+		}
+	}
+	for i := range 400 {
+		v := fmt.Sprintf("v0.%d.0", i)
+		for _, f := range []string{"go.mod", v + ".info", "source.zip"} {
+			put(mod + "/service/nested/" + v + "/" + f)
+		}
+	}
+	t.Cleanup(func() {
+		for obj := range s.minioClient.ListObjectsV2(s.bucketName, mod+"/", true, nil) {
+			_ = s.minioClient.RemoveObject(s.bucketName, obj.Key)
+		}
+	})
+
+	got, err := s.List(ctx, mod)
+	require.NoError(t, err)
+	slices.Sort(want)
+	require.Equal(t, want, got)
 }
