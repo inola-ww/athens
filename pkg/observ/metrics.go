@@ -2,6 +2,8 @@ package observ
 
 import (
 	"context"
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gomods/athens/pkg/errors"
@@ -15,11 +17,17 @@ const (
 	attrCacheResult = "cache_result"
 	attrCacheType   = "cache_type"
 	attrFetchResult = "fetch_result"
+	attrListResult  = "list_result"
+	attrEndpoint    = "endpoint"
 )
 
 // upstreamExponentialBuckets are the histogram boundaries (in seconds) for
 // upstream fetch latency.
 var upstreamExponentialBuckets = []float64{0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 30}
+
+// waitBuckets are the histogram boundaries (in seconds) for time spent waiting
+// for a concurrency slot.
+var waitBuckets = []float64{0.001, 0.01, 0.05, 0.1, 0.5, 1, 5, 30}
 
 // Custom instruments. They are nil until initMetrics runs (i.e. when the stats
 // exporter is registered); the Record* helpers guard against that so recording
@@ -28,6 +36,9 @@ var (
 	cacheLookupCounter    metric.Int64Counter
 	upstreamFetchCounter  metric.Int64Counter
 	upstreamFetchDuration metric.Float64Histogram
+	upstreamListDuration  metric.Float64Histogram
+	upstreamListWait      metric.Float64Histogram
+	upstreamListInFlight  metric.Int64UpDownCounter
 )
 
 // initMetrics creates Athens' custom instruments from the global MeterProvider.
@@ -62,6 +73,32 @@ func initMetrics() error {
 		return errors.E(op, err)
 	}
 
+	upstreamListDuration, err = meter.Float64Histogram(
+		"upstream_list_duration_seconds",
+		metric.WithDescription("Distribution of upstream version lookup (go list) latency in seconds"),
+		metric.WithExplicitBucketBoundaries(upstreamExponentialBuckets...),
+	)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	upstreamListWait, err = meter.Float64Histogram(
+		"upstream_list_wait_seconds",
+		metric.WithDescription("Time upstream version lookups waited for a ProtocolWorkers slot in seconds"),
+		metric.WithExplicitBucketBoundaries(waitBuckets...),
+	)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	upstreamListInFlight, err = meter.Int64UpDownCounter(
+		"upstream_list_in_flight",
+		metric.WithDescription("Number of upstream version lookups currently running"),
+	)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
 	return nil
 }
 
@@ -91,4 +128,62 @@ func RecordUpstreamFetchDuration(ctx context.Context, result string, duration ti
 	upstreamFetchDuration.Record(ctx, duration.Seconds(), metric.WithAttributes(
 		attribute.String(attrFetchResult, result),
 	))
+}
+
+// RecordUpstreamList records one upstream version lookup. result is one of
+// ok, not_found, timeout, canceled or error.
+func RecordUpstreamList(ctx context.Context, result string, duration time.Duration) {
+	if upstreamListDuration == nil {
+		return
+	}
+	upstreamListDuration.Record(ctx, duration.Seconds(), metric.WithAttributes(
+		attribute.String(attrListResult, result),
+	))
+}
+
+// RecordUpstreamListWait records how long a lookup waited for a slot.
+func RecordUpstreamListWait(ctx context.Context, duration time.Duration) {
+	if upstreamListWait == nil {
+		return
+	}
+	upstreamListWait.Record(ctx, duration.Seconds())
+}
+
+// AddUpstreamListInFlight adjusts the number of running upstream lookups.
+func AddUpstreamListInFlight(ctx context.Context, delta int64) {
+	if upstreamListInFlight == nil {
+		return
+	}
+	upstreamListInFlight.Add(ctx, delta)
+}
+
+// EndpointAttributes labels HTTP server metrics with a low-cardinality
+// endpoint name derived from the request path.
+func EndpointAttributes(r *http.Request) []attribute.KeyValue {
+	return []attribute.KeyValue{attribute.String(attrEndpoint, endpoint(r.URL.Path))}
+}
+
+func endpoint(path string) string {
+	switch {
+	case strings.HasSuffix(path, "/@v/list"):
+		return "list"
+	case strings.HasSuffix(path, "/@latest"):
+		return "latest"
+	case strings.HasSuffix(path, ".info"):
+		return "info"
+	case strings.HasSuffix(path, ".mod"):
+		return "mod"
+	case strings.HasSuffix(path, ".zip"):
+		return "zip"
+	case strings.Contains(path, "/sumdb/"):
+		return "sumdb"
+	case strings.HasPrefix(path, "/dl/"):
+		return "toolchain"
+	case path == "/healthz" || path == "/readyz":
+		return "health"
+	case path == "/metrics":
+		return "metrics"
+	default:
+		return "other"
+	}
 }

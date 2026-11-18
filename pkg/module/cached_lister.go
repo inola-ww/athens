@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gomods/athens/pkg/errors"
+	"github.com/gomods/athens/pkg/observ"
 	"github.com/gomods/athens/pkg/storage"
 	"github.com/hashicorp/golang-lru/v2/expirable"
 )
@@ -49,13 +50,16 @@ func NewCachedLister(lister UpstreamLister, opts CachedListerOpts) UpstreamListe
 
 func (c *cachedLister) List(ctx context.Context, mod string) (*storage.RevInfo, []string, error) {
 	if l, ok := c.hits.Get(mod); ok {
+		observ.RecordCacheLookup(ctx, "hit", "list")
 		return l.copy()
 	}
 	if c.misses != nil {
 		if err, ok := c.misses.Get(mod); ok {
+			observ.RecordCacheLookup(ctx, "negative_hit", "list")
 			return nil, nil, err
 		}
 	}
+	observ.RecordCacheLookup(ctx, "miss", "list")
 
 	rev, versions, err := c.lister.List(ctx, mod)
 	// A canceled request can surface as a not-found from the go command; don't

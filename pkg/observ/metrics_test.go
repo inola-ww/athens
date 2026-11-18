@@ -104,3 +104,24 @@ func TestUpstreamFetchDurationHistogram(t *testing.T) {
 		t.Fatalf("expected sample sum 2, got %v", got)
 	}
 }
+
+func TestEndpoint(t *testing.T) {
+	cases := map[string]string{
+		"/github.com/spf13/cobra/@v/list":         "list",
+		"/github.com/spf13/cobra/@latest":         "latest",
+		"/github.com/spf13/cobra/@v/v1.9.1.info":  "info",
+		"/github.com/spf13/cobra/@v/v1.9.1.mod":   "mod",
+		"/github.com/spf13/cobra/@v/v1.9.1.zip":   "zip",
+		"/sumdb/sum.golang.org/lookup/x@v1.0.0":   "sumdb",
+		"/prefix/sumdb/sum.golang.org/tile/8/0/1": "sumdb",
+		"/dl/go1.26.10.linux-amd64.tar.gz":        "toolchain",
+		"/healthz":                                "health",
+		"/metrics":                                "metrics",
+		"/":                                       "other",
+	}
+	for path, want := range cases {
+		if got := endpoint(path); got != want {
+			t.Errorf("endpoint(%q) = %q, want %q", path, got, want)
+		}
+	}
+}

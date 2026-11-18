@@ -8,6 +8,7 @@ import (
 	"github.com/gomods/athens/pkg/errors"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/otlptranslator"
 	"go.opentelemetry.io/otel"
@@ -48,6 +49,10 @@ func registerPrometheusExporter(r *mux.Router, service string) (func(), error) {
 	const op errors.Op = "observ.registerPrometheusExporter"
 
 	registry := prometheus.NewRegistry()
+	registry.MustRegister(
+		collectors.NewGoCollector(),
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+	)
 	exporter, err := otelprom.New(
 		otelprom.WithRegisterer(registry),
 		otelprom.WithNamespace(service),

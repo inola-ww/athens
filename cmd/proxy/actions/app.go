@@ -150,7 +150,7 @@ func App(logger *log.Logger, conf *config.Config) (http.Handler, func(), error) 
 		return nil, cleanup, fmt.Errorf("adding proxy routes: %w", err)
 	}
 
-	h := otelhttp.NewHandler(r, Service)
+	h := otelhttp.NewHandler(r, Service, otelhttp.WithMetricAttributesFn(observ.EndpointAttributes))
 
 	return h, cleanup, nil
 }
