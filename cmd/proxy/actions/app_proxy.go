@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -112,6 +113,13 @@ func addProxyRoutes(
 	// stashing has its own pool (GoGetWorkers). The cache sits outside the
 	// limit so cache hits never wait for a slot.
 	lister := module.NewLimitedLister(module.NewVCSLister(c.GoBinary, c.GoBinaryEnvVars, fs, c.TimeoutDuration()), c.ProtocolWorkers)
+	if c.ListUpstreamURL != "" {
+		// Like the go command, GONOPROXY defaults to GOPRIVATE; those modules
+		// keep going through `go list`.
+		private := cmp.Or(c.GoBinaryEnvVars.Get("GONOPROXY"), c.GoBinaryEnvVars.Get("GOPRIVATE"))
+		client := &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport), Timeout: c.TimeoutDuration()}
+		lister = module.NewHTTPLister(c.ListUpstreamURL, client, private, lister)
+	}
 	if c.ListCacheTTL > 0 {
 		lister = module.NewCachedLister(lister, module.CachedListerOpts{
 			TTL:         time.Duration(c.ListCacheTTL) * time.Second,

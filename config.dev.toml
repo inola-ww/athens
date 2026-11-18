@@ -336,6 +336,15 @@ ListCacheTTL = 0
 # Env override: ATHENS_LIST_CACHE_NEGATIVE_TTL
 ListCacheNegativeTTL = 0
 
+# ListUpstreamURL makes Athens answer upstream version discovery (/@v/list and
+# /@latest) by asking this module proxy over HTTP, e.g.
+# "https://proxy.golang.org", instead of running "go list" per request. That
+# avoids a process (and possibly git) per lookup. Modules matching GONOPROXY,
+# or GOPRIVATE if GONOPROXY is unset, in GoBinaryEnvVars still use "go list".
+# Empty (default) always uses "go list".
+# Env override: ATHENS_LIST_UPSTREAM_URL
+ListUpstreamURL = ""
+
 # ListCacheSize is the maximum number of modules kept in the list cache, for
 # found and not-found results each. The least recently used entry is evicted
 # first. 0 means unbounded.

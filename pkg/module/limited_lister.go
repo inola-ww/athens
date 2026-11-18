@@ -36,7 +36,7 @@ func (l *limitedLister) List(ctx context.Context, mod string) (*storage.RevInfo,
 	defer observ.AddUpstreamListInFlight(ctx, -1)
 	start := time.Now()
 	rev, versions, err := l.lister.List(ctx, mod)
-	observ.RecordUpstreamList(ctx, listResult(ctx, err), time.Since(start))
+	observ.RecordUpstreamList(ctx, "go", listResult(ctx, err), time.Since(start))
 	return rev, versions, err
 }
 

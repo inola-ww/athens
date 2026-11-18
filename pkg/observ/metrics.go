@@ -18,6 +18,7 @@ const (
 	attrCacheType   = "cache_type"
 	attrFetchResult = "fetch_result"
 	attrListResult  = "list_result"
+	attrLister      = "lister"
 	attrEndpoint    = "endpoint"
 )
 
@@ -75,7 +76,7 @@ func initMetrics() error {
 
 	upstreamListDuration, err = meter.Float64Histogram(
 		"upstream_list_duration_seconds",
-		metric.WithDescription("Distribution of upstream version lookup (go list) latency in seconds"),
+		metric.WithDescription("Distribution of upstream version lookup latency in seconds"),
 		metric.WithExplicitBucketBoundaries(upstreamExponentialBuckets...),
 	)
 	if err != nil {
@@ -130,13 +131,15 @@ func RecordUpstreamFetchDuration(ctx context.Context, result string, duration ti
 	))
 }
 
-// RecordUpstreamList records one upstream version lookup. result is one of
-// ok, not_found, timeout, canceled or error.
-func RecordUpstreamList(ctx context.Context, result string, duration time.Duration) {
+// RecordUpstreamList records one upstream version lookup. lister is "go"
+// (a go list process) or "http" (the upstream proxy's HTTP API); result is one
+// of ok, not_found, timeout, canceled or error.
+func RecordUpstreamList(ctx context.Context, lister, result string, duration time.Duration) {
 	if upstreamListDuration == nil {
 		return
 	}
 	upstreamListDuration.Record(ctx, duration.Seconds(), metric.WithAttributes(
+		attribute.String(attrLister, lister),
 		attribute.String(attrListResult, result),
 	))
 }

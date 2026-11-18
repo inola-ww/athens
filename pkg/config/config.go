@@ -68,6 +68,7 @@ type Config struct {
 	ListCacheTTL          int       `envconfig:"ATHENS_LIST_CACHE_TTL"           validate:"min=0"`
 	ListCacheNegativeTTL  int       `envconfig:"ATHENS_LIST_CACHE_NEGATIVE_TTL"  validate:"min=0"`
 	ListCacheSize         int       `envconfig:"ATHENS_LIST_CACHE_SIZE"          validate:"min=0"`
+	ListUpstreamURL       string    `envconfig:"ATHENS_LIST_UPSTREAM_URL"`
 	SingleFlightType      string    `envconfig:"ATHENS_SINGLE_FLIGHT_TYPE"`
 	RobotsFile            string    `envconfig:"ATHENS_ROBOTS_FILE"`
 	IndexType             string    `envconfig:"ATHENS_INDEX_TYPE"`
@@ -92,6 +93,18 @@ func (el EnvList) HasKey(key string) bool {
 		}
 	}
 	return false
+}
+
+// Get returns the value of the last key=value entry for key,
+// or "" if there is none.
+func (el EnvList) Get(key string) string {
+	var value string
+	for _, env := range el {
+		if v, ok := strings.CutPrefix(env, key+"="); ok {
+			value = v
+		}
+	}
+	return value
 }
 
 // Add adds a key=value entry to the environment
