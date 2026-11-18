@@ -1,0 +1,21 @@
+cmd/proxy/actions/app_proxy.go
+  s_aaebbe9b85bbfa::t_cbda153f4b895c 135-138,143,151
+pkg/observ/metrics.go
+  s_aaebbe9b85bbfa::t_3d8c12bc4dd531 22-23,35-37,48,109-117,208-219
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1f011f418afafe9761c931ffb7bae03aa3065ac7",
+  "prompts": {},
+  "sessions": {
+    "s_aaebbe9b85bbfa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "75a1a00d-0673-4b78-af03-4cc0644d0e02",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Wurzer, Wilhelm <148440009+inola-ww@users.noreply.github.com>"
+    }
+  }
+}
