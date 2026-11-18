@@ -8,121 +8,54 @@ import (
 	"github.com/gomods/athens/pkg/storage"
 )
 
+// withpool limits how many download.Protocol calls run at once. A caller
+// waiting for a slot gives up when its context is done, so disconnected
+// clients don't queue for (and then occupy) a slot.
 type withpool struct {
-	dp download.Protocol
-
-	// jobCh is a channel that takes an anonymous
-	// function that it executes based on the pool's
-	// business. The design levarages closures
-	// so that the worker does not need to worry about
-	// what the type of job it is taking (Info, Zip etc),
-	// it just regulates functions and executes them
-	// in a worker-pool fashion.
-	jobCh chan func()
+	dp  download.Protocol
+	sem chan struct{}
 }
 
 // WithPool takes a download Protocol and a number of workers
-// and creates a N worker pool that share all the download.Protocol
-// methods.
+// and limits all download.Protocol methods to that many
+// concurrent calls.
 func WithPool(workers int) download.Wrapper {
 	return func(dp download.Protocol) download.Protocol {
-		jobCh := make(chan func())
-		p := &withpool{dp: dp, jobCh: jobCh}
-
-		p.start(workers)
-		return p
+		return &withpool{dp: dp, sem: make(chan struct{}, workers)}
 	}
 }
 
-func (p *withpool) start(numWorkers int) {
-	for range numWorkers {
-		go p.listen()
+func run[T any](ctx context.Context, p *withpool, op errors.Op, f func() (T, error)) (T, error) {
+	var zero T
+	select {
+	case p.sem <- struct{}{}:
+	case <-ctx.Done():
+		return zero, errors.E(op, ctx.Err())
 	}
-}
-
-func (p *withpool) listen() {
-	for f := range p.jobCh {
-		f()
+	defer func() { <-p.sem }()
+	v, err := f()
+	if err != nil {
+		return zero, errors.E(op, err)
 	}
+	return v, nil
 }
 
 func (p *withpool) List(ctx context.Context, mod string) ([]string, error) {
-	const op errors.Op = "pool.List"
-	var vers []string
-	var err error
-	done := make(chan struct{}, 1)
-	p.jobCh <- func() {
-		vers, err = p.dp.List(ctx, mod)
-		close(done)
-	}
-	<-done
-	if err != nil {
-		return nil, errors.E(op, err)
-	}
-
-	return vers, nil
+	return run(ctx, p, "pool.List", func() ([]string, error) { return p.dp.List(ctx, mod) })
 }
 
 func (p *withpool) Info(ctx context.Context, mod, ver string) ([]byte, error) {
-	const op errors.Op = "pool.Info"
-	var info []byte
-	var err error
-	done := make(chan struct{}, 1)
-	p.jobCh <- func() {
-		info, err = p.dp.Info(ctx, mod, ver)
-		close(done)
-	}
-	<-done
-	if err != nil {
-		return nil, errors.E(op, err)
-	}
-	return info, nil
+	return run(ctx, p, "pool.Info", func() ([]byte, error) { return p.dp.Info(ctx, mod, ver) })
 }
 
 func (p *withpool) Latest(ctx context.Context, mod string) (*storage.RevInfo, error) {
-	const op errors.Op = "pool.Latest"
-	var info *storage.RevInfo
-	var err error
-	done := make(chan struct{}, 1)
-	p.jobCh <- func() {
-		info, err = p.dp.Latest(ctx, mod)
-		close(done)
-	}
-	<-done
-	if err != nil {
-		return nil, errors.E(op, err)
-	}
-	return info, nil
+	return run(ctx, p, "pool.Latest", func() (*storage.RevInfo, error) { return p.dp.Latest(ctx, mod) })
 }
 
 func (p *withpool) GoMod(ctx context.Context, mod, ver string) ([]byte, error) {
-	const op errors.Op = "pool.GoMod"
-	var goMod []byte
-	var err error
-	done := make(chan struct{}, 1)
-	p.jobCh <- func() {
-		goMod, err = p.dp.GoMod(ctx, mod, ver)
-		close(done)
-	}
-	<-done
-	if err != nil {
-		return nil, errors.E(op, err)
-	}
-	return goMod, nil
+	return run(ctx, p, "pool.GoMod", func() ([]byte, error) { return p.dp.GoMod(ctx, mod, ver) })
 }
 
 func (p *withpool) Zip(ctx context.Context, mod, ver string) (storage.SizeReadCloser, error) {
-	const op errors.Op = "pool.Zip"
-	var zip storage.SizeReadCloser
-	var err error
-	done := make(chan struct{}, 1)
-	p.jobCh <- func() {
-		zip, err = p.dp.Zip(ctx, mod, ver)
-		close(done)
-	}
-	<-done
-	if err != nil {
-		return nil, errors.E(op, err)
-	}
-	return zip, nil
+	return run(ctx, p, "pool.Zip", func() (storage.SizeReadCloser, error) { return p.dp.Zip(ctx, mod, ver) })
 }
