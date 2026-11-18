@@ -3,6 +3,7 @@ package addons
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"sync"
@@ -153,4 +154,33 @@ func (m *mockDP) Zip(ctx context.Context, mod, ver string) (storage.SizeReadClos
 // Version is a helper method to get Info, GoMod, and Zip together.
 func (m *mockDP) Version(ctx context.Context, mod, ver string) (*storage.Version, error) {
 	panic("skipped")
+}
+
+// TestPoolHonorsContext ensures a caller waiting for a slot
+// returns once its context is done instead of queueing forever.
+func TestPoolHonorsContext(t *testing.T) {
+	block, started := make(chan struct{}), make(chan struct{})
+	defer close(block)
+	dp := WithPool(1)(&blockingDP{block: block, started: started})
+	go dp.Info(t.Context(), "pkg", "v0.1.0")
+	<-started
+
+	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+	defer cancel()
+	_, err := dp.Info(ctx, "pkg", "v0.1.0")
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected context.DeadlineExceeded but got %v", err)
+	}
+}
+
+type blockingDP struct {
+	download.Protocol
+	block   chan struct{}
+	started chan struct{}
+}
+
+func (b *blockingDP) Info(ctx context.Context, mod, ver string) ([]byte, error) {
+	close(b.started)
+	<-b.block
+	return nil, nil
 }
