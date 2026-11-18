@@ -65,6 +65,9 @@ type Config struct {
 	DownloadURL           string    `envconfig:"ATHENS_DOWNLOAD_URL"`
 	CacheControl          string    `envconfig:"ATHENS_CACHE_CONTROL"`
 	NetworkMode           string    `envconfig:"ATHENS_NETWORK_MODE"             validate:"oneof=strict offline fallback"`
+	ListCacheTTL          int       `envconfig:"ATHENS_LIST_CACHE_TTL"           validate:"min=0"`
+	ListCacheNegativeTTL  int       `envconfig:"ATHENS_LIST_CACHE_NEGATIVE_TTL"  validate:"min=0"`
+	ListCacheSize         int       `envconfig:"ATHENS_LIST_CACHE_SIZE"          validate:"min=0"`
 	SingleFlightType      string    `envconfig:"ATHENS_SINGLE_FLIGHT_TYPE"`
 	RobotsFile            string    `envconfig:"ATHENS_ROBOTS_FILE"`
 	IndexType             string    `envconfig:"ATHENS_INDEX_TYPE"`
@@ -181,6 +184,7 @@ func defaultConfig() *Config {
 		DownloadMode:          "sync",
 		DownloadURL:           "",
 		NetworkMode:           "strict",
+		ListCacheSize:         10000,
 		RobotsFile:            "robots.txt",
 		IndexType:             "none",
 		ShutdownTimeout:       60,

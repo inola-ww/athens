@@ -109,6 +109,13 @@ func addProxyRoutes(
 	}
 
 	lister := module.NewVCSLister(c.GoBinary, c.GoBinaryEnvVars, fs, c.TimeoutDuration())
+	if c.ListCacheTTL > 0 {
+		lister = module.NewCachedLister(lister, module.CachedListerOpts{
+			TTL:         time.Duration(c.ListCacheTTL) * time.Second,
+			NegativeTTL: time.Duration(c.ListCacheNegativeTTL) * time.Second,
+			Size:        c.ListCacheSize,
+		})
+	}
 	checker := storage.WithChecker(s)
 	withSingleFlight, err := getSingleFlight(l, c, s, checker)
 	if err != nil {

@@ -323,6 +323,27 @@ DownloadMode = "sync"
 # Env override: ATHENS_NETWORK_MODE
 NetworkMode = "strict"
 
+# ListCacheTTL caches upstream version discovery (/@v/list and /@latest) in
+# memory for the given number of seconds. Every uncached lookup runs a separate
+# "go list" process, so repeated lookups of the same module are slow and
+# CPU-heavy. New upstream versions become visible after at most this delay.
+# 0 (default) disables the cache. The cache is per Athens instance.
+# Env override: ATHENS_LIST_CACHE_TTL
+ListCacheTTL = 0
+
+# ListCacheNegativeTTL caches upstream not-found results for the given number
+# of seconds. This helps with clients such as "go get" that probe many import
+# paths which are not module roots. Only applies when ListCacheTTL > 0.
+# 0 (default) disables negative caching.
+# Env override: ATHENS_LIST_CACHE_NEGATIVE_TTL
+ListCacheNegativeTTL = 0
+
+# ListCacheSize is the maximum number of modules kept in the list cache, for
+# found and not-found results each. The least recently used entry is evicted
+# first. 0 means unbounded.
+# Env override: ATHENS_LIST_CACHE_SIZE
+ListCacheSize = 10000
+
 # DownloadURL is the URL that will be used if
 # DownloadMode is set to "redirect"
 # Env override: ATHENS_DOWNLOAD_URL

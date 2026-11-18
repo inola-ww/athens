@@ -14,6 +14,17 @@ weight: 2
 
 For a module matching [download mode `none`](/configuration/download), both discovery endpoints use storage only, regardless of network mode. An internal repository can therefore use `sync` while public modules use `none` in the same Athens deployment.
 
+## Caching upstream discovery
+
+In `strict` and `fallback` mode every `/@v/list` and `/@latest` request runs `go list` against upstream, which costs a process start and network round trips per request. Set `ListCacheTTL` (`ATHENS_LIST_CACHE_TTL`, seconds) to reuse upstream results in memory for that long. New upstream versions then appear after at most that delay.
+
+`ListCacheNegativeTTL` (`ATHENS_LIST_CACHE_NEGATIVE_TTL`) does the same for not-found results. This matters for `go get`, which probes many import paths that are not module roots. Other upstream errors, such as timeouts, are never cached. `ListCacheSize` (`ATHENS_LIST_CACHE_SIZE`, default 10000) caps the number of cached modules, separately for found and not-found results; 0 means unbounded. The cache is per Athens instance and is disabled by default.
+
+```toml
+ListCacheTTL = 300
+ListCacheNegativeTTL = 60
+```
+
 ## What Go selects from an offline cache
 
 The `go` command resolves dependencies before compiling their packages. For a query such as `go get example.com/module@latest`, it first requests `/@v/list` and considers the tagged versions that Athens reports. Go prefers the highest release version, then the highest prerelease version, subject to exclusions and retractions.
