@@ -150,6 +150,7 @@ func addProxyRoutes(
 		Lister:       lister,
 		DownloadFile: df,
 		NetworkMode:  c.NetworkMode,
+		StashZipOnly: c.StashZipOnly,
 	}
 
 	dp := download.New(dpOpts)

@@ -70,6 +70,7 @@ type Config struct {
 	ListCacheSize         int       `envconfig:"ATHENS_LIST_CACHE_SIZE"          validate:"min=0"`
 	ListUpstreamURL       string    `envconfig:"ATHENS_LIST_UPSTREAM_URL"`
 	FetchUpstreamURL      string    `envconfig:"ATHENS_FETCH_UPSTREAM_URL"`
+	StashZipOnly          bool      `envconfig:"ATHENS_STASH_ZIP_ONLY"`
 	SingleFlightType      string    `envconfig:"ATHENS_SINGLE_FLIGHT_TYPE"`
 	RobotsFile            string    `envconfig:"ATHENS_ROBOTS_FILE"`
 	IndexType             string    `envconfig:"ATHENS_INDEX_TYPE"`

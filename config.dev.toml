@@ -362,6 +362,15 @@ FetchUpstreamURL = ""
 # Env override: ATHENS_LIST_CACHE_SIZE
 ListCacheSize = 10000
 
+# StashZipOnly makes the "async" and "async_redirect" download modes start a
+# background download only when a .zip is missing. Misses on .info and .mod
+# are still answered with 404 or a redirect, but don't pull the whole module
+# into storage. Tools that read .info of every release (e.g. Renovate) or the
+# go command reading .mod files during version selection then don't fill
+# storage with versions nobody builds. Has no effect in other modes.
+# Env override: ATHENS_STASH_ZIP_ONLY
+StashZipOnly = false
+
 # DownloadURL is the URL that will be used if
 # DownloadMode is set to "redirect"
 # Env override: ATHENS_DOWNLOAD_URL

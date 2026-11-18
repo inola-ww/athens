@@ -46,6 +46,12 @@ type Opts struct {
 	Lister       module.UpstreamLister
 	DownloadFile *mode.DownloadFile
 	NetworkMode  string
+	// StashZipOnly makes the async and async_redirect download modes start a
+	// background stash only on .zip misses; .info and .mod misses are just
+	// answered (404 or redirect). Version discovery (e.g. Renovate reading
+	// .info of every release, or MVS reading .mod files) then no longer pulls
+	// whole module zips into storage.
+	StashZipOnly bool
 }
 
 // NetworkMode constants.
@@ -64,7 +70,7 @@ func New(opts *Opts, wrappers ...Wrapper) Protocol {
 	if opts.DownloadFile == nil {
 		opts.DownloadFile = &mode.DownloadFile{Mode: mode.Sync}
 	}
-	var p Protocol = &protocol{opts.DownloadFile, opts.Storage, opts.Stasher, opts.Lister, opts.NetworkMode}
+	var p Protocol = &protocol{opts.DownloadFile, opts.Storage, opts.Stasher, opts.Lister, opts.NetworkMode, opts.StashZipOnly}
 	for _, w := range wrappers {
 		p = w(p)
 	}
@@ -78,6 +84,7 @@ type protocol struct {
 	stasher     stash.Stasher
 	lister      module.UpstreamLister
 	networkMode string
+	zipOnly     bool
 }
 
 func (p *protocol) List(ctx context.Context, mod string) ([]string, error) {
@@ -213,7 +220,7 @@ func (p *protocol) Info(ctx context.Context, mod, ver string) ([]byte, error) {
 		observ.RecordCacheLookup(ctx, "hit", "info")
 	} else if errors.IsNotFoundErr(err) {
 		observ.RecordCacheLookup(ctx, "miss", "info")
-		err = p.processDownload(ctx, mod, ver, func(newVer string) error {
+		err = p.processDownload(ctx, mod, ver, !p.zipOnly, func(newVer string) error {
 			info, err = p.storage.Info(ctx, mod, newVer)
 			return err
 		})
@@ -234,7 +241,7 @@ func (p *protocol) GoMod(ctx context.Context, mod, ver string) ([]byte, error) {
 		observ.RecordCacheLookup(ctx, "hit", "gomod")
 	} else if errors.IsNotFoundErr(err) {
 		observ.RecordCacheLookup(ctx, "miss", "gomod")
-		err = p.processDownload(ctx, mod, ver, func(newVer string) error {
+		err = p.processDownload(ctx, mod, ver, !p.zipOnly, func(newVer string) error {
 			goMod, err = p.storage.GoMod(ctx, mod, newVer)
 			return err
 		})
@@ -254,7 +261,7 @@ func (p *protocol) Zip(ctx context.Context, mod, ver string) (storage.SizeReadCl
 		observ.RecordCacheLookup(ctx, "hit", "zip")
 	} else if errors.IsNotFoundErr(err) {
 		observ.RecordCacheLookup(ctx, "miss", "zip")
-		err = p.processDownload(ctx, mod, ver, func(newVer string) error {
+		err = p.processDownload(ctx, mod, ver, true, func(newVer string) error {
 			zip, err = p.storage.Zip(ctx, mod, newVer)
 			return err
 		})
@@ -266,7 +273,9 @@ func (p *protocol) Zip(ctx context.Context, mod, ver string) (storage.SizeReadCl
 	return zip, nil
 }
 
-func (p *protocol) processDownload(ctx context.Context, mod, ver string, f func(newVer string) error) error {
+// processDownload handles a storage miss according to the download mode.
+// backgroundStash controls whether the async modes start a stash.
+func (p *protocol) processDownload(ctx context.Context, mod, ver string, backgroundStash bool, f func(newVer string) error) error {
 	const op errors.Op = "protocol.processDownload"
 	// Create a new context with custom deadline and ditch whatever deadline was passed by the caller.
 	// This is needed so that the async go routines can continue even after the HTTP request is complete (which leads to context cancellation).
@@ -280,12 +289,16 @@ func (p *protocol) processDownload(ctx context.Context, mod, ver string, f func(
 		}
 		return f(newVer)
 	case mode.Async:
-		go func() { _, _ = p.stasher.Stash(ctx, mod, ver) }()
+		if backgroundStash {
+			go func() { _, _ = p.stasher.Stash(ctx, mod, ver) }()
+		}
 		return errors.E(op, "async: module not found", errors.KindNotFound)
 	case mode.Redirect:
 		return errors.E(op, "redirect", errors.KindRedirect)
 	case mode.AsyncRedirect:
-		go func() { _, _ = p.stasher.Stash(ctx, mod, ver) }()
+		if backgroundStash {
+			go func() { _, _ = p.stasher.Stash(ctx, mod, ver) }()
+		}
 		return errors.E(op, "async_redirect: module not found", errors.KindRedirect)
 	case mode.None:
 		return errors.E(op, "none", errors.KindNotFound)

@@ -442,7 +442,7 @@ func TestDownloadProtocol(t *testing.T) {
 	}
 	mp := &mockFetcher{}
 	st := stash.New(mp, s, nop.New(), 10*time.Minute)
-	dp := New(&Opts{s, st, nil, nil, Strict})
+	dp := New(&Opts{Storage: s, Stasher: st, NetworkMode: Strict})
 	ctx := t.Context()
 
 	var eg errgroup.Group
@@ -494,7 +494,7 @@ func TestDownloadProtocolWhenFetchFails(t *testing.T) {
 	}
 	mp := &notFoundFetcher{}
 	st := stash.New(mp, s, nop.New(), 10*time.Minute)
-	dp := New(&Opts{s, st, nil, nil, Strict})
+	dp := New(&Opts{Storage: s, Stasher: st, NetworkMode: Strict})
 	_, err = dp.GoMod(t.Context(), fakeMod.mod, fakeMod.ver)
 	if err != nil {
 		t.Errorf("Download protocol should succeed, instead it gave error %s \n", err)
@@ -522,6 +522,39 @@ func TestAsyncRedirect(t *testing.T) {
 	info, err := dp.Info(t.Context(), mod, ver)
 	require.NoError(t, err)
 	require.Equal(t, string(info), "info", "expected async fetch to be successful")
+}
+
+func TestStashZipOnly(t *testing.T) {
+	s, err := mem.NewStorage()
+	require.NoError(t, err)
+	ms := &mockStasher{s, make(chan bool, 3)}
+	dp := New(&Opts{
+		Stasher:      ms,
+		Storage:      s,
+		StashZipOnly: true,
+		DownloadFile: &mode.DownloadFile{
+			Mode:        mode.AsyncRedirect,
+			DownloadURL: "https://proxy.golang.org",
+		},
+	})
+	mod, ver := "github.com/athens-artifacts/happy-path", "v0.0.1"
+
+	_, err = dp.Info(t.Context(), mod, ver)
+	require.Equal(t, errors.KindRedirect, errors.Kind(err))
+	_, err = dp.GoMod(t.Context(), mod, ver)
+	require.Equal(t, errors.KindRedirect, errors.Kind(err))
+	select {
+	case <-ms.ch:
+		t.Fatal(".info and .mod misses must not stash with StashZipOnly")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	_, err = dp.Zip(t.Context(), mod, ver)
+	require.Equal(t, errors.KindRedirect, errors.Kind(err))
+	<-ms.ch
+	info, err := dp.Info(t.Context(), mod, ver)
+	require.NoError(t, err)
+	require.Equal(t, "info", string(info))
 }
 
 type mockStasher struct {
