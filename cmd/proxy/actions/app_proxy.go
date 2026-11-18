@@ -12,7 +12,6 @@ import (
 
 	"github.com/gomods/athens/pkg/config"
 	"github.com/gomods/athens/pkg/download"
-	"github.com/gomods/athens/pkg/download/addons"
 	"github.com/gomods/athens/pkg/download/mode"
 	"github.com/gomods/athens/pkg/godl"
 	"github.com/gomods/athens/pkg/index"
@@ -108,7 +107,10 @@ func addProxyRoutes(
 		return err
 	}
 
-	lister := module.NewVCSLister(c.GoBinary, c.GoBinaryEnvVars, fs, c.TimeoutDuration())
+	// ProtocolWorkers caps concurrent upstream lookups only. Wrapping the
+	// whole protocol made cheap storage reads queue behind slow `go list` runs;
+	// stashing has its own pool (GoGetWorkers).
+	lister := module.NewLimitedLister(module.NewVCSLister(c.GoBinary, c.GoBinaryEnvVars, fs, c.TimeoutDuration()), c.ProtocolWorkers)
 	checker := storage.WithChecker(s)
 	withSingleFlight, err := getSingleFlight(l, c, s, checker)
 	if err != nil {
@@ -129,7 +131,7 @@ func addProxyRoutes(
 		NetworkMode:  c.NetworkMode,
 	}
 
-	dp := download.New(dpOpts, addons.WithPool(c.ProtocolWorkers))
+	dp := download.New(dpOpts)
 
 	handlerOpts := &download.HandlerOpts{Protocol: dp, Logger: l, DownloadFile: df, CacheControl: c.CacheControl}
 	download.RegisterHandlers(r, handlerOpts)
