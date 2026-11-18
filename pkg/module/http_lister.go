@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -16,9 +15,6 @@ import (
 	"golang.org/x/mod/semver"
 	"golang.org/x/sync/errgroup"
 )
-
-// maxListBody caps how much of an upstream /@v/list or .info response is read.
-const maxListBody = 4 << 20
 
 type httpLister struct {
 	baseURL  string
@@ -120,31 +116,7 @@ func (l *httpLister) info(ctx context.Context, url string) (*storage.RevInfo, er
 }
 
 func (l *httpLister) get(ctx context.Context, url string) ([]byte, error) {
-	const op errors.Op = "httpLister.get"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, errors.E(op, err)
-	}
-	resp, err := l.client.Do(req)
-	if err != nil {
-		if errors.IsErr(ctx.Err(), context.DeadlineExceeded) {
-			return nil, errors.E(op, err, errors.KindGatewayTimeout)
-		}
-		return nil, errors.E(op, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxListBody))
-	if err != nil {
-		return nil, errors.E(op, err)
-	}
-	switch {
-	case resp.StatusCode == http.StatusOK:
-		return body, nil
-	case resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone:
-		return nil, errors.E(op, fmt.Sprintf("%s: %s", url, strings.TrimSpace(string(body))), errors.KindNotFound)
-	default:
-		return nil, errors.E(op, fmt.Sprintf("%s: unexpected status %d", url, resp.StatusCode), errors.KindUnexpected)
-	}
+	return upstreamGetBytes(ctx, l.client, url)
 }
 
 // highestVersion returns the highest release, or the highest pre-release when

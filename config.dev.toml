@@ -345,6 +345,17 @@ ListCacheNegativeTTL = 0
 # Env override: ATHENS_LIST_UPSTREAM_URL
 ListUpstreamURL = ""
 
+# FetchUpstreamURL makes Athens download a missing module version's .info,
+# .mod and .zip straight from this module proxy over HTTP, e.g.
+# "https://proxy.golang.org", instead of running "go mod download". The zip is
+# streamed to a temporary file in GoGetDir and checked with
+# golang.org/x/mod/zip.CheckZip; it is not verified against a checksum
+# database (clients still verify it against go.sum and GOSUMDB). Modules
+# matching GONOPROXY, or GOPRIVATE if GONOPROXY is unset, in GoBinaryEnvVars
+# still use "go mod download". Empty (default) always uses the go binary.
+# Env override: ATHENS_FETCH_UPSTREAM_URL
+FetchUpstreamURL = ""
+
 # ListCacheSize is the maximum number of modules kept in the list cache, for
 # found and not-found results each. The least recently used entry is evicted
 # first. 0 means unbounded.

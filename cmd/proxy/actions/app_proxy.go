@@ -107,6 +107,14 @@ func addProxyRoutes(
 	if err != nil {
 		return err
 	}
+	// Like the go command, GONOPROXY defaults to GOPRIVATE; those modules keep
+	// going through the go binary when an HTTP upstream is configured.
+	private := cmp.Or(c.GoBinaryEnvVars.Get("GONOPROXY"), c.GoBinaryEnvVars.Get("GOPRIVATE"))
+	if c.FetchUpstreamURL != "" {
+		// No client timeout: big zips are bounded by StashTimeout instead.
+		client := &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
+		mf = module.NewHTTPFetcher(c.FetchUpstreamURL, client, c.GoGetDir, private, mf)
+	}
 
 	// ProtocolWorkers caps concurrent upstream lookups only. Wrapping the
 	// whole protocol made cheap storage reads queue behind slow `go list` runs;
@@ -114,9 +122,6 @@ func addProxyRoutes(
 	// limit so cache hits never wait for a slot.
 	lister := module.NewLimitedLister(module.NewVCSLister(c.GoBinary, c.GoBinaryEnvVars, fs, c.TimeoutDuration()), c.ProtocolWorkers)
 	if c.ListUpstreamURL != "" {
-		// Like the go command, GONOPROXY defaults to GOPRIVATE; those modules
-		// keep going through `go list`.
-		private := cmp.Or(c.GoBinaryEnvVars.Get("GONOPROXY"), c.GoBinaryEnvVars.Get("GOPRIVATE"))
 		client := &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport), Timeout: c.TimeoutDuration()}
 		lister = module.NewHTTPLister(c.ListUpstreamURL, client, private, lister)
 	}

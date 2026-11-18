@@ -69,6 +69,7 @@ type Config struct {
 	ListCacheNegativeTTL  int       `envconfig:"ATHENS_LIST_CACHE_NEGATIVE_TTL"  validate:"min=0"`
 	ListCacheSize         int       `envconfig:"ATHENS_LIST_CACHE_SIZE"          validate:"min=0"`
 	ListUpstreamURL       string    `envconfig:"ATHENS_LIST_UPSTREAM_URL"`
+	FetchUpstreamURL      string    `envconfig:"ATHENS_FETCH_UPSTREAM_URL"`
 	SingleFlightType      string    `envconfig:"ATHENS_SINGLE_FLIGHT_TYPE"`
 	RobotsFile            string    `envconfig:"ATHENS_ROBOTS_FILE"`
 	IndexType             string    `envconfig:"ATHENS_INDEX_TYPE"`
