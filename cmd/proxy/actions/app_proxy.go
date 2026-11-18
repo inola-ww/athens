@@ -152,6 +152,14 @@ func addProxyRoutes(
 		NetworkMode:  c.NetworkMode,
 		StashZipOnly: c.StashZipOnly,
 	}
+	if c.FetchUpstreamURL != "" && c.StashZipOnly {
+		client := &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport), Timeout: c.TimeoutDuration()}
+		meta, err := module.NewHTTPMeta(c.FetchUpstreamURL, client, private, c.UpstreamMetaCacheSize)
+		if err != nil {
+			return err
+		}
+		dpOpts.UpstreamMeta = meta
+	}
 
 	dp := download.New(dpOpts)
 

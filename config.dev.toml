@@ -371,6 +371,14 @@ ListCacheSize = 10000
 # Env override: ATHENS_STASH_ZIP_ONLY
 StashZipOnly = false
 
+# UpstreamMetaCacheSize applies when both StashZipOnly and FetchUpstreamURL are
+# set. Athens then answers .info and .mod misses with the file from
+# FetchUpstreamURL itself instead of a redirect or 404, saving the client a
+# round trip, without storing anything. Files for canonical versions are kept
+# in an in-memory LRU of this many entries; 0 disables that cache.
+# Env override: ATHENS_UPSTREAM_META_CACHE_SIZE
+UpstreamMetaCacheSize = 20000
+
 # DownloadURL is the URL that will be used if
 # DownloadMode is set to "redirect"
 # Env override: ATHENS_DOWNLOAD_URL

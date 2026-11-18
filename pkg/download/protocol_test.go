@@ -557,6 +557,68 @@ func TestStashZipOnly(t *testing.T) {
 	require.Equal(t, "info", string(info))
 }
 
+type mockMeta struct{ err error }
+
+func (m *mockMeta) Info(_ context.Context, mod, ver string) ([]byte, error) {
+	return []byte("upstream info"), m.err
+}
+
+func (m *mockMeta) GoMod(_ context.Context, mod, ver string) ([]byte, error) {
+	return []byte("upstream mod"), m.err
+}
+
+func TestUpstreamMeta(t *testing.T) {
+	const op errors.Op = "test"
+	mod, ver := "github.com/athens-artifacts/happy-path", "v0.0.1"
+	newDP := func(t *testing.T, meta *mockMeta) (Protocol, *mockStasher) {
+		s, err := mem.NewStorage()
+		require.NoError(t, err)
+		ms := &mockStasher{s, make(chan bool, 3)}
+		return New(&Opts{
+			Stasher:      ms,
+			Storage:      s,
+			StashZipOnly: true,
+			UpstreamMeta: meta,
+			DownloadFile: &mode.DownloadFile{Mode: mode.AsyncRedirect, DownloadURL: "https://proxy.golang.org"},
+		}), ms
+	}
+	noStash := func(t *testing.T, ms *mockStasher) {
+		t.Helper()
+		select {
+		case <-ms.ch:
+			t.Fatal("metadata misses must not stash")
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+
+	t.Run("served", func(t *testing.T) {
+		dp, ms := newDP(t, &mockMeta{})
+		info, err := dp.Info(t.Context(), mod, ver)
+		require.NoError(t, err)
+		require.Equal(t, "upstream info", string(info))
+		gomod, err := dp.GoMod(t.Context(), mod, ver)
+		require.NoError(t, err)
+		require.Equal(t, "upstream mod", string(gomod))
+		noStash(t, ms)
+	})
+	t.Run("not found", func(t *testing.T) {
+		dp, ms := newDP(t, &mockMeta{err: errors.E(op, "gone", errors.KindNotFound)})
+		_, err := dp.Info(t.Context(), mod, ver)
+		require.Equal(t, errors.KindNotFound, errors.Kind(err))
+		noStash(t, ms)
+	})
+	t.Run("upstream trouble redirects", func(t *testing.T) {
+		dp, _ := newDP(t, &mockMeta{err: errors.E(op, "boom", errors.KindUnexpected)})
+		_, err := dp.Info(t.Context(), mod, ver)
+		require.Equal(t, errors.KindRedirect, errors.Kind(err))
+	})
+	t.Run("private redirects", func(t *testing.T) {
+		dp, _ := newDP(t, &mockMeta{err: module.ErrMetaSkipped})
+		_, err := dp.GoMod(t.Context(), mod, ver)
+		require.Equal(t, errors.KindRedirect, errors.Kind(err))
+	})
+}
+
 type mockStasher struct {
 	s  storage.Backend
 	ch chan bool

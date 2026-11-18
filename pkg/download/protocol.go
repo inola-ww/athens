@@ -52,6 +52,10 @@ type Opts struct {
 	// .info of every release, or MVS reading .mod files) then no longer pulls
 	// whole module zips into storage.
 	StashZipOnly bool
+	// UpstreamMeta, when set together with StashZipOnly, answers .info and
+	// .mod misses in the async and redirect download modes with the upstream
+	// file itself instead of a redirect, saving the client a round trip.
+	UpstreamMeta module.UpstreamMeta
 }
 
 // NetworkMode constants.
@@ -70,7 +74,7 @@ func New(opts *Opts, wrappers ...Wrapper) Protocol {
 	if opts.DownloadFile == nil {
 		opts.DownloadFile = &mode.DownloadFile{Mode: mode.Sync}
 	}
-	var p Protocol = &protocol{opts.DownloadFile, opts.Storage, opts.Stasher, opts.Lister, opts.NetworkMode, opts.StashZipOnly}
+	var p Protocol = &protocol{opts.DownloadFile, opts.Storage, opts.Stasher, opts.Lister, opts.NetworkMode, opts.StashZipOnly, opts.UpstreamMeta}
 	for _, w := range wrappers {
 		p = w(p)
 	}
@@ -85,6 +89,7 @@ type protocol struct {
 	lister      module.UpstreamLister
 	networkMode string
 	zipOnly     bool
+	meta        module.UpstreamMeta
 }
 
 func (p *protocol) List(ctx context.Context, mod string) ([]string, error) {
@@ -220,10 +225,13 @@ func (p *protocol) Info(ctx context.Context, mod, ver string) ([]byte, error) {
 		observ.RecordCacheLookup(ctx, "hit", "info")
 	} else if errors.IsNotFoundErr(err) {
 		observ.RecordCacheLookup(ctx, "miss", "info")
-		err = p.processDownload(ctx, mod, ver, !p.zipOnly, func(newVer string) error {
-			info, err = p.storage.Info(ctx, mod, newVer)
-			return err
-		})
+		var served bool
+		if info, served, err = p.metaFromUpstream(ctx, mod, ver, p.metaInfo); !served {
+			err = p.processDownload(ctx, mod, ver, !p.zipOnly, func(newVer string) error {
+				info, err = p.storage.Info(ctx, mod, newVer)
+				return err
+			})
+		}
 	}
 	if err != nil {
 		return nil, errors.E(op, err)
@@ -241,10 +249,13 @@ func (p *protocol) GoMod(ctx context.Context, mod, ver string) ([]byte, error) {
 		observ.RecordCacheLookup(ctx, "hit", "gomod")
 	} else if errors.IsNotFoundErr(err) {
 		observ.RecordCacheLookup(ctx, "miss", "gomod")
-		err = p.processDownload(ctx, mod, ver, !p.zipOnly, func(newVer string) error {
-			goMod, err = p.storage.GoMod(ctx, mod, newVer)
-			return err
-		})
+		var served bool
+		if goMod, served, err = p.metaFromUpstream(ctx, mod, ver, p.metaGoMod); !served {
+			err = p.processDownload(ctx, mod, ver, !p.zipOnly, func(newVer string) error {
+				goMod, err = p.storage.GoMod(ctx, mod, newVer)
+				return err
+			})
+		}
 	}
 	if err != nil {
 		return nil, errors.E(op, err)
@@ -271,6 +282,39 @@ func (p *protocol) Zip(ctx context.Context, mod, ver string) (storage.SizeReadCl
 	}
 
 	return zip, nil
+}
+
+func (p *protocol) metaInfo(ctx context.Context, mod, ver string) ([]byte, error) {
+	return p.meta.Info(ctx, mod, ver)
+}
+
+func (p *protocol) metaGoMod(ctx context.Context, mod, ver string) ([]byte, error) {
+	return p.meta.GoMod(ctx, mod, ver)
+}
+
+// metaFromUpstream answers an .info or .mod storage miss with the upstream
+// file when UpstreamMeta and StashZipOnly are configured and the module's
+// download mode would not wait for a download anyway. served is false when the
+// caller should fall back to processDownload: the feature is off, the module
+// is private, or the upstream failed for a reason other than not-found.
+func (p *protocol) metaFromUpstream(ctx context.Context, mod, ver string, get func(context.Context, string, string) ([]byte, error)) ([]byte, bool, error) {
+	if p.meta == nil || !p.zipOnly || p.df == nil {
+		return nil, false, nil
+	}
+	switch p.df.Match(mod) {
+	case mode.Async, mode.Redirect, mode.AsyncRedirect:
+	default:
+		return nil, false, nil
+	}
+	b, err := get(ctx, mod, ver)
+	switch {
+	case err == nil:
+		return b, true, nil
+	case errors.IsNotFoundErr(err):
+		return nil, true, err
+	default:
+		return nil, false, nil
+	}
 }
 
 // processDownload handles a storage miss according to the download mode.

@@ -292,6 +292,7 @@ func TestParseExampleConfig(t *testing.T) {
 		StorageType:           "memory",
 		NetworkMode:           "strict",
 		ListCacheSize:         10000,
+		UpstreamMetaCacheSize: 20000,
 		GlobalEndpoint:        "http://localhost:3001",
 		HomeTemplatePath:      "/var/lib/athens/home.html",
 		Port:                  ":3000",
