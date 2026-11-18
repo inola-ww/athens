@@ -19,6 +19,8 @@ const (
 	attrFetchResult = "fetch_result"
 	attrListResult  = "list_result"
 	attrLister      = "lister"
+	attrStorageOp   = "operation"
+	attrResult      = "result"
 	attrEndpoint    = "endpoint"
 )
 
@@ -30,6 +32,9 @@ var upstreamExponentialBuckets = []float64{0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 30}
 // for a concurrency slot.
 var waitBuckets = []float64{0.001, 0.01, 0.05, 0.1, 0.5, 1, 5, 30}
 
+// storageBuckets are the histogram boundaries (in seconds) for storage calls.
+var storageBuckets = []float64{0.002, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30}
+
 // Custom instruments. They are nil until initMetrics runs (i.e. when the stats
 // exporter is registered); the Record* helpers guard against that so recording
 // is a no-op when metrics are disabled, mirroring OpenCensus' behavior.
@@ -40,6 +45,7 @@ var (
 	upstreamListDuration  metric.Float64Histogram
 	upstreamListWait      metric.Float64Histogram
 	upstreamListInFlight  metric.Int64UpDownCounter
+	storageOpDuration     metric.Float64Histogram
 )
 
 // initMetrics creates Athens' custom instruments from the global MeterProvider.
@@ -95,6 +101,15 @@ func initMetrics() error {
 	upstreamListInFlight, err = meter.Int64UpDownCounter(
 		"upstream_list_in_flight",
 		metric.WithDescription("Number of upstream version lookups currently running"),
+	)
+	if err != nil {
+		return errors.E(op, err)
+	}
+
+	storageOpDuration, err = meter.Float64Histogram(
+		"storage_operation_duration_seconds",
+		metric.WithDescription("Distribution of storage backend call latency in seconds"),
+		metric.WithExplicitBucketBoundaries(storageBuckets...),
 	)
 	if err != nil {
 		return errors.E(op, err)
@@ -189,4 +204,16 @@ func endpoint(path string) string {
 	default:
 		return "other"
 	}
+}
+
+// RecordStorageOperation records one storage backend call. operation is list,
+// info, gomod, zip, save, delete or exists; result is ok, not_found or error.
+func RecordStorageOperation(ctx context.Context, operation, result string, duration time.Duration) {
+	if storageOpDuration == nil {
+		return
+	}
+	storageOpDuration.Record(ctx, duration.Seconds(), metric.WithAttributes(
+		attribute.String(attrStorageOp, operation),
+		attribute.String(attrResult, result),
+	))
 }

@@ -132,12 +132,15 @@ func addProxyRoutes(
 			Size:        c.ListCacheSize,
 		})
 	}
-	checker := storage.WithChecker(s)
+	// Only the module protocol path is metered; toolchain, catalog and
+	// readiness use s directly and keep its optional interfaces.
+	ms := storage.WithMetrics(s)
+	checker := storage.WithChecker(ms)
 	withSingleFlight, err := getSingleFlight(l, c, s, checker)
 	if err != nil {
 		return err
 	}
-	st := stash.New(mf, s, indexer, c.StashTimeoutDuration(), stash.WithPool(c.GoGetWorkers), withSingleFlight)
+	st := stash.New(mf, ms, indexer, c.StashTimeoutDuration(), stash.WithPool(c.GoGetWorkers), withSingleFlight)
 
 	df, err := mode.NewFile(c.DownloadMode, c.DownloadURL)
 	if err != nil {
@@ -145,7 +148,7 @@ func addProxyRoutes(
 	}
 
 	dpOpts := &download.Opts{
-		Storage:      s,
+		Storage:      ms,
 		Stasher:      st,
 		Lister:       lister,
 		DownloadFile: df,
