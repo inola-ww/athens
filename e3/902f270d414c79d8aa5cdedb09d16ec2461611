@@ -1,0 +1,26 @@
+cmd/proxy/actions/app_proxy.go
+  h_3bbfca859729f3 110-117
+config.dev.toml
+  h_3bbfca859729f3 348-358
+pkg/config/config.go
+  h_3bbfca859729f3 72
+pkg/module/http_fetcher.go
+  h_3bbfca859729f3 1-157
+pkg/module/http_fetcher_test.go
+  h_3bbfca859729f3 1-115
+pkg/module/http_lister.go
+  h_3bbfca859729f3 119
+pkg/module/upstream_http.go
+  h_3bbfca859729f3 1-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e3902f270d414c79d8aa5cdedb09d16ec2461611",
+  "prompts": {},
+  "humans": {
+    "h_3bbfca859729f3": {
+      "author": "Wurzer, Wilhelm <148440009+inola-ww@users.noreply.github.com>"
+    }
+  }
+}
