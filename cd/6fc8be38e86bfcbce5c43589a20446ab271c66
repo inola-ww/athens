@@ -1,0 +1,16 @@
+pkg/storage/minio/lister.go
+  h_3bbfca859729f3 5,7,11,18-20,23-27,29-41,43
+pkg/storage/minio/minio_test.go
+  h_3bbfca859729f3 4-5,7,12-13,118-154
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cd6fc8be38e86bfcbce5c43589a20446ab271c66",
+  "prompts": {},
+  "humans": {
+    "h_3bbfca859729f3": {
+      "author": "Wurzer, Wilhelm <148440009+inola-ww@users.noreply.github.com>"
+    }
+  }
+}
