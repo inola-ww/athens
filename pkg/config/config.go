@@ -73,6 +73,8 @@ type Config struct {
 	StashZipOnly          bool      `envconfig:"ATHENS_STASH_ZIP_ONLY"`
 	UpstreamMetaCacheSize int       `envconfig:"ATHENS_UPSTREAM_META_CACHE_SIZE" validate:"min=0"`
 	BackgroundStashLimit  int       `envconfig:"ATHENS_BACKGROUND_STASH_LIMIT"   validate:"min=0"`
+	UploadToken           string    `envconfig:"ATHENS_UPLOAD_TOKEN"`
+	UploadPatterns        []string  `envconfig:"ATHENS_UPLOAD_PATTERNS"`
 	SingleFlightType      string    `envconfig:"ATHENS_SINGLE_FLIGHT_TYPE"`
 	RobotsFile            string    `envconfig:"ATHENS_ROBOTS_FILE"`
 	IndexType             string    `envconfig:"ATHENS_INDEX_TYPE"`

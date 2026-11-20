@@ -387,6 +387,22 @@ UpstreamMetaCacheSize = 20000
 # Env override: ATHENS_BACKGROUND_STASH_LIMIT
 BackgroundStashLimit = 1000
 
+# UploadToken enables PUT <athens-url>/<module>/@v/<version>.zip, which stores
+# a release that is not fetched from a VCS or an upstream proxy, for example a
+# private module built by CI. Clients send "Authorization: Bearer <token>".
+# Empty (the default) disables uploads. Uploaded versions are immutable: a
+# second upload of the same module@version gets 409 Conflict. Global basic
+# auth also uses the Authorization header, so uploads don't work with it.
+# See docs/content/configuration/upload.md.
+# Env override: ATHENS_UPLOAD_TOKEN
+UploadToken = ""
+
+# UploadPatterns lists the modules that may be uploaded, with the glob rules
+# of GOPRIVATE (e.g. "go.example.com/*"). Required when UploadToken is set,
+# so a leaked token can't plant versions of public modules.
+# Env override: ATHENS_UPLOAD_PATTERNS (comma separated)
+UploadPatterns = []
+
 # DownloadURL is the URL that will be used if
 # DownloadMode is set to "redirect"
 # Env override: ATHENS_DOWNLOAD_URL

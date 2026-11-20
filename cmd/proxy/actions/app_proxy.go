@@ -168,6 +168,21 @@ func addProxyRoutes(
 
 	dp := download.New(dpOpts)
 
+	if c.UploadToken != "" {
+		if len(c.UploadPatterns) == 0 {
+			return errors.New("UploadToken is set but UploadPatterns is empty")
+		}
+		u := &uploader{
+			token:    []byte(c.UploadToken),
+			patterns: c.UploadPatterns,
+			storage:  ms,
+			checker:  checker,
+			indexer:  indexer,
+			tmpDir:   c.GoGetDir,
+		}
+		r.Handle(download.PathVersionZip, uploadHandler(u)).Methods(http.MethodPut)
+	}
+
 	handlerOpts := &download.HandlerOpts{Protocol: dp, Logger: l, DownloadFile: df, CacheControl: c.CacheControl}
 	download.RegisterHandlers(r, handlerOpts)
 
